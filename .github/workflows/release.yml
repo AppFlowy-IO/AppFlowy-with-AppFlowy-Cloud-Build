@@ -158,6 +158,7 @@ jobs:
       MACOS_APP_RELEASE_PATH: frontend/appflowy_flutter/product/${{ needs.prepare.outputs.version }}/macos/Release
       MACOS_DMG_NAME: ${{ matrix.environment }}_AppFlowy_${{ github.ref_name }}_macos-x86_64
       MACOS_CODESIGN_ID: ${{ secrets.MACOS_CODESIGN_ID }}
+      MACOS_NOTARY_USER: ${{ secrets.MACOS_NOTARY_USER }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
@@ -241,9 +242,18 @@ jobs:
           "${{ env.MACOS_APP_RELEASE_PATH }}/${{ env.MACOS_DMG_NAME }}.dmg" \
           "${{ env.MACOS_APP_RELEASE_PATH }}/AppFlowy.app"
 
-      - name: Notarize AppFlowy
+      - name: Check macOS Notary user
         run: |
-          xcrun notarytool submit ${{ env.MACOS_APP_RELEASE_PATH }}/${{ env.MACOS_DMG_NAME }}.dmg --apple-id ${{ secrets.MACOS_NOTARY_USER }} --team-id ${{ secrets.MACOS_TEAM_ID }} --password ${{ secrets.MACOS_NOTARY_PWD }} -v -f "json" --wait
+          if [ -z "${{ env.MACOS_NOTARY_USER }}" ]; then
+            echo "MACOS_NOTARY_USER is not set. Skipping notarize AppFlowy."
+          else
+            echo "MACOS_NOTARY_USER is set. Proceeding with Notarize AppFlowy"
+          fi
+
+      - name: Notarize AppFlowy
+        if: env.MACOS_CODESIGN_ID != ''
+        run: |
+          xcrun notarytool submit ${{ env.MACOS_APP_RELEASE_PATH }}/${{ env.MACOS_DMG_NAME }}.dmg --apple-id ${{ env.MACOS_NOTARY_USER }} --team-id ${{ secrets.MACOS_TEAM_ID }} --password ${{ secrets.MACOS_NOTARY_PWD }} -v -f "json" --wait
 
       - name: Upload DMG Asset
         uses: actions/upload-release-asset@v1
